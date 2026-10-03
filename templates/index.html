@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>《另一个她/他》- 沉浸聊天模拟</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: #121212; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        .phone-shell { width: 100%; max-width: 440px; height: 100vh; background: #ededed; display: flex; flex-direction: column; position: relative; }
+        @media(min-width: 480px) { .phone-shell { height: 92vh; border-radius: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); } }
+
+        /* 顶部状态栏 */
+        .header { background: #f7f7f7; border-bottom: 1px solid #dcdcdc; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; }
+        .target-title h3 { font-size: 16px; color: #222; font-weight: 600; }
+        .target-title span { font-size: 11px; color: #777; }
+        
+        .header-actions { display: flex; align-items: center; gap: 6px; }
+        .action-btn { background: #4b6584; color: white; border: none; padding: 4px 7px; border-radius: 6px; font-size: 11px; cursor: pointer; text-decoration: none; }
+        .action-btn:hover { background: #3867d6; }
+        .danger-btn { background: #ff4d4f; color: white; border: none; padding: 4px 8px; border-radius: 6px; font-size: 11px; cursor: pointer; }
+        .danger-btn:hover { background: #d9363e; }
+
+        .score-track { width: 100%; height: 6px; background: #e2e2e2; border-radius: 3px; overflow: hidden; }
+        .score-progress { height: 100%; width: 40%; background: linear-gradient(90deg, #ff7675, #d63031); transition: width 0.4s ease; }
+
+        /* 对话区 */
+        .chat-area { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+        .msg-bubble-wrap { display: flex; gap: 8px; max-width: 82%; }
+        .msg-bubble-wrap.player { align-self: flex-end; flex-direction: row-reverse; }
+        .bubble { padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.45; word-break: break-all; }
+        .ai .bubble { background: #ffffff; color: #111; border-top-left-radius: 2px; }
+        .player .bubble { background: #95ec69; color: #000; border-top-right-radius: 2px; }
+        .emotion-badge { font-size: 11px; color: #888; margin-bottom: 3px; }
+
+        /* 表情包选择栏 */
+        .emoji-bar { background: #fafafa; border-top: 1px solid #e8e8e8; padding: 8px 12px; display: flex; gap: 8px; overflow-x: auto; }
+        .emoji-chip { background: #fff; border: 1px solid #dcdcdc; border-radius: 14px; padding: 4px 10px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+        .emoji-chip:hover { background: #eee; }
+
+        /* 底部输入框 */
+        .footer-input { background: #f7f7f7; border-top: 1px solid #dcdcdc; padding: 10px 12px; display: flex; gap: 8px; }
+        .footer-input input { flex: 1; padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; outline: none; }
+        .footer-input button { padding: 0 16px; background: #07c160; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .footer-input button:disabled { background: #9ee5b7; cursor: not-allowed; }
+
+        /* 开局面板 */
+        .setup-overlay { position: absolute; inset: 0; background: #ffffff; z-index: 10; display: flex; flex-direction: column; padding: 24px; justify-content: center; gap: 12px; }
+        .setup-overlay h2 { font-size: 20px; color: #222; text-align: center; }
+        .setup-overlay p { font-size: 13px; color: #666; text-align: center; line-height: 1.5; }
+        .file-dropzone { border: 2px dashed #07c160; border-radius: 10px; padding: 16px; text-align: center; cursor: pointer; background: #f9fffb; font-size: 13px; }
+        .file-dropzone input { display: none; }
+        .setup-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; }
+        .setup-overlay textarea { width: 100%; height: 90px; padding: 10px; border: 1px solid #ddd; border-radius: 8px; resize: none; outline: none; font-size: 13px; }
+        .start-btn { padding: 12px; background: #07c160; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; }
+
+        /* 终局复盘报告弹窗 */
+        .report-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); z-index: 20; display: flex; justify-content: center; align-items: center; padding: 16px; backdrop-filter: blur(5px); }
+        .report-card { width: 100%; max-width: 420px; max-height: 90vh; background: #fff; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+        .report-header { background: #2f3542; color: #fff; padding: 16px; text-align: center; }
+        .report-header h2 { font-size: 16px; margin-bottom: 4px; }
+        .report-header span { font-size: 11px; color: #a4b0be; }
+        
+        .report-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; font-size: 13px; line-height: 1.6; color: #333; }
+        .report-section { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 10px; padding: 12px 14px; }
+        .section-title { font-weight: bold; font-size: 13px; color: #1e272e; margin-bottom: 6px; }
+        .sub-field { margin-bottom: 8px; }
+        .sub-field strong { color: #57606f; display: block; font-size: 12px; margin-bottom: 2px; }
+
+        .bad-moment-item { background: #fff; border-left: 3px solid #ff4757; padding: 8px 10px; border-radius: 4px; margin-top: 6px; font-size: 12px; }
+        .bad-moment-quote { color: #d63031; font-weight: 500; }
+        .bad-moment-reason { color: #636e72; margin-top: 2px; }
+
+        .verdict-box { background: #f1f2f6; border-left: 4px solid #2ed573; padding: 10px 12px; border-radius: 4px; }
+        .verdict-nature { font-weight: bold; color: #2f3542; margin-bottom: 4px; }
+        .verdict-advice { color: #474787; font-size: 12px; line-height: 1.55; }
+
+        .report-footer { padding: 12px; border-top: 1px solid #eee; background: #fff; }
+        .report-close-btn { width: 100%; padding: 10px; background: #2f3542; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .loading-spin { width: 32px; height: 32px; border: 3px solid #ddd; border-top-color: #2f3542; border-radius: 50%; margin: 0 auto; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="phone-shell">
+        <!-- 初始人设面板 -->
+        <div class="setup-overlay" id="setupOverlay">
+            <h2>《另一个她/他》</h2>
+            <p>上传与 TA 的聊天记录 (.txt) 或直接输入人设，系统将自动提炼语气习惯并支持长期记忆。</p>
+            
+            <input type="text" id="customName" class="setup-input" placeholder="给TA起个名字/昵称（选填，留空由AI推断）">
+
+            <label class="file-dropzone">
+                <span id="fileLabel">📁 点击选择或拖入聊天记录文本 (.txt)</span>
+                <input type="file" id="logFileInput" accept=".txt" onchange="handleFileSelected(this)">
+            </label>
+
+            <div style="text-align: center; font-size: 12px; color: #aaa;">—— 或手动输入 ——</div>
+            <textarea id="manualDesc" placeholder="例如：性格高冷慢热，平时爱喝茶看书，反感他人查岗与频繁追问..."></textarea>
+            
+            <button class="start-btn" id="startBtn" onclick="submitPersona()">生成角色并开启人生</button>
+        </div>
+
+        <!-- 顶栏状态 -->
+        <div class="header">
+            <div class="header-top">
+                <div class="target-title">
+                    <h3 id="roleName">角色载入中...</h3>
+                    <span id="roleStage">阶段: 初识试探</span>
+                </div>
+                <div class="header-actions">
+                    <span style="font-size: 12px; font-weight: bold; color: #d63031; margin-right: 2px;">
+                        好感: <span id="scoreText">40</span>
+                    </span>
+                    <button class="action-btn" onclick="exportSaveFile()">导出</button>
+                    <label class="action-btn">
+                        导入
+                        <input type="file" accept=".json" onchange="importSaveFile(this)" style="display:none;">
+                    </label>
+                    <button class="danger-btn" onclick="triggerFarewell()">面对现实</button>
+                </div>
+            </div>
+            <div class="score-track">
+                <div class="score-progress" id="scoreBar"></div>
+            </div>
+        </div>
+
+        <!-- 聊天区域 -->
+        <div class="chat-area" id="chatArea"></div>
+
+        <!-- 表情包面板 -->
+        <div class="emoji-bar">
+            <button class="emoji-chip" onclick="sendEmoji('🐶 滑稽', '调侃、开玩笑')">🐶 滑稽</button>
+            <button class="emoji-chip" onclick="sendEmoji('🐱 害羞小猫', '不好意思、心动')">🐱 害羞</button>
+            <button class="emoji-chip" onclick="sendEmoji('❓ 黑人问号', '疑惑、不解')">❓ 问号</button>
+            <button class="emoji-chip" onclick="sendEmoji('👊 敲打拳头', '假装生气、娇嗔')">👊 敲打</button>
+            <button class="emoji-chip" onclick="sendEmoji('🌹 递玫瑰', '示好、浪漫')">🌹 送花</button>
+        </div>
+
+        <!-- 底部输入框 -->
+        <div class="footer-input">
+            <input type="text" id="playerInput" placeholder="发消息..." onkeydown="if(event.key==='Enter') sendChat()">
+            <button id="sendBtn" onclick="sendChat()">发送</button>
+        </div>
+
+        <!-- 终局深度复盘诊断面板 -->
+        <div id="reportModal" class="report-overlay" style="display: none;">
+            <div class="report-card">
+                <div class="report-header">
+                    <h2>🧭 关系终局复盘与深度诊断</h2>
+                    <span>基于真实过往语料与本次模拟推演</span>
+                </div>
+                <div class="report-body" id="reportBody">
+                    <div style="text-align: center; padding: 40px 0; color: #888;">
+                        <div class="loading-spin"></div>
+                        <p style="margin-top: 12px; font-size: 13px;">AI 专家正在全量交叉复盘语料与扣分点，请稍候...</p>
+                    </div>
+                </div>
+                <div class="report-footer">
+                    <button class="report-close-btn" onclick="closeReportAndReset()">完成复盘，坦然走向现实</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let fileContent = "";
+        let currentSessionId = localStorage.getItem('game_session_id') || "";
+
+        // 页面打开时自动恢复存档
+        window.addEventListener('DOMContentLoaded', async () => {
+            if (!currentSessionId) return;
+            try {
+                const resp = await fetch('/api/load_session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: currentSessionId })
+                });
+                const data = await resp.json();
+                if (data.has_role) {
+                    document.getElementById('setupOverlay').style.display = 'none';
+                    document.getElementById('roleName').innerText = data.persona.name || "TA";
+                    updateStatus(data.score, data.stage);
+                    data.history.forEach(item => {
+                        appendMsg(item.role === 'user' ? 'player' : 'ai', item.content);
+                    });
+                }
+            } catch (e) {
+                console.log("加载历史存档失败:", e);
+            }
+        });
+
+        function handleFileSelected(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                fileContent = e.target.result;
+                document.getElementById('fileLabel').innerText = "✅ 已载入: " + file.name;
+            };
+            reader.readAsText(file);
+        }
+
+        async function submitPersona() {
+            const manual = document.getElementById('manualDesc').value.trim();
+            const customName = document.getElementById('customName').value.trim();
+            const textToSend = fileContent || manual;
+            if (!textToSend) {
+                alert("请选择聊天记录文件或输入性格描述！");
+                return;
+            }
+
+            const startBtn = document.getElementById('startBtn');
+            startBtn.disabled = true;
+            startBtn.innerText = "正在提炼长久人设与性格，请稍候...";
+
+            const res = await fetch('/api/init', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    context: textToSend.slice(0, 8000),
+                    custom_name: customName,
+                    session_id: currentSessionId
+                })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                currentSessionId = data.session_id;
+                localStorage.setItem('game_session_id', currentSessionId);
+                document.getElementById('setupOverlay').style.display = 'none';
+                document.getElementById('roleName').innerText = data.persona.name || "TA";
+                updateStatus(data.persona.initial_score || 40, "初识试探");
+                appendMsg('ai', "（对方已上线）", data.persona.personality);
+            } else {
+                alert("人设提炼失败，请重试。");
+                startBtn.disabled = false;
+                startBtn.innerText = "生成角色并开启人生";
+            }
+        }
+
+        function updateStatus(score, stage) {
+            document.getElementById('scoreText').innerText = score;
+            document.getElementById('scoreBar').style.width = Math.min(100, Math.max(0, score)) + '%';
+            if (stage) document.getElementById('roleStage').innerText = "阶段: " + stage;
+        }
+
+        function appendMsg(sender, text, emotion = '') {
+            const area = document.getElementById('chatArea');
+            const wrap = document.createElement('div');
+            wrap.className = `msg-bubble-wrap ${sender}`;
+            
+            let html = '<div>';
+            if (sender === 'ai' && emotion) {
+                html += `<div class="emotion-badge">${emotion}</div>`;
+            }
+            html += `<div class="bubble">${text}</div></div>`;
+            wrap.innerHTML = html;
+            area.appendChild(wrap);
+            area.scrollTop = area.scrollHeight;
+        }
+
+        async function sendChat() {
+            const input = document.getElementById('playerInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            input.value = '';
+            appendMsg('player', text);
+
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+
+            try {
+                const resp = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        message: text,
+                        session_id: currentSessionId 
+                    })
+                });
+                const data = await resp.json();
+                appendMsg('ai', data.reply, data.emotion);
+                updateStatus(data.favorability, data.stage);
+
+                if (data.end) {
+                    appendMsg('ai', data.end_reason, '故事落幕');
+                    setTimeout(() => {
+                        openDiagnosticReport();
+                    }, 1400);
+                }
+            } catch (e) {
+                appendMsg('ai', '网络卡顿，请重试...', '走神');
+            } finally {
+                sendBtn.disabled = false;
+            }
+        }
+
+        function sendEmoji(name, meaning) {
+            const text = `[发送了表情包: ${name} (潜台词: ${meaning})]`;
+            document.getElementById('playerInput').value = text;
+            sendChat();
+        }
+
+        async function triggerFarewell() {
+            const ok = confirm("【郑重警告】\n彻底删除该虚拟角色的所有记忆并面对现实？\n本地硬盘存档将彻底销毁，不可再生。确定继续吗？");
+            if (!ok) return;
+
+            const resp = await fetch('/api/farewell', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: currentSessionId })
+            });
+            const data = await resp.json();
+            
+            appendMsg('ai', data.farewell, '最后的道别');
+            setTimeout(() => {
+                openDiagnosticReport();
+            }, 1800);
+        }
+
+        async function openDiagnosticReport() {
+            const modal = document.getElementById('reportModal');
+            modal.style.display = 'flex';
+            document.getElementById('reportBody').innerHTML = `
+                <div style="text-align: center; padding: 50px 0; color: #888;">
+                    <div class="loading-spin"></div>
+                    <p style="margin-top: 12px; font-size: 13px;">情感专家正在全量交叉分析真实记录与模拟行为...</p>
+                </div>
+            `;
+
+            try {
+                const resp = await fetch('/api/analyze_report', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: currentSessionId })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    renderReport(data.report);
+                } else {
+                    document.getElementById('reportBody').innerHTML = `<p style="color:red;text-align:center;">生成报告失败。</p>`;
+                }
+            } catch (e) {
+                document.getElementById('reportBody').innerHTML = `<p style="color:red;text-align:center;">网络异常，未能生成报告。</p>`;
+            }
+        }
+
+        function renderReport(r) {
+            const real = r.real_analysis || {};
+            const sim = r.sim_analysis || {};
+            const verdict = r.final_verdict || {};
+
+            let mistakesHtml = '';
+            if (sim.critical_mistakes && sim.critical_mistakes.length > 0) {
+                sim.critical_mistakes.forEach(m => {
+                    mistakesHtml += `
+                        <div class="bad-moment-item">
+                            <div class="bad-moment-quote">“${m.player_quote}” (${m.score_drop}分)</div>
+                            <div class="bad-moment-reason">↳ 对方感受：${m.why_she_felt_bad}</div>
+                        </div>
+                    `;
+                });
+            } else {
+                mistakesHtml = '<p style="color:#888; font-size:12px;">本次模拟中未出现大幅踩雷扣分。</p>';
+            }
+
+            const html = `
+                <div class="report-section">
+                    <div class="section-title">📜 真实过往心理切片 (TA当时到底怎么想的)</div>
+                    <div class="sub-field">
+                        <strong>转折发生点：</strong>
+                        <span>${real.turning_point || '未见明显转折'}</span>
+                    </div>
+                    <div class="sub-field">
+                        <strong>TA在现实中的真实防备与心理：</strong>
+                        <span>${real.inner_thoughts || '暂无'}</span>
+                    </div>
+                    <div class="sub-field" style="margin-bottom:0;">
+                        <strong>根本相处错位：</strong>
+                        <span>${real.real_pattern || '暂无'}</span>
+                    </div>
+                </div>
+
+                <div class="report-section">
+                    <div class="section-title">🎮 本次模拟实战复盘与扣分归因</div>
+                    <div class="sub-field">
+                        <strong>表现评价：</strong>
+                        <span>${sim.performance_eval || '表现平稳'}</span>
+                    </div>
+                    <div class="sub-field" style="margin-bottom:0;">
+                        <strong>核心扣分原话剖析：</strong>
+                        ${mistakesHtml}
+                    </div>
+                </div>
+
+                <div class="verdict-box">
+                    <div class="verdict-nature">📌 关系定性：${verdict.relationship_nature || '一段未完的追寻'}</div>
+                    <div class="verdict-advice">“${verdict.reality_advice || '去真实的生活里爱自己。'}”</div>
+                </div>
+            `;
+            document.getElementById('reportBody').innerHTML = html;
+        }
+
+        function closeReportAndReset() {
+            localStorage.removeItem('game_session_id');
+            location.reload();
+        }
+
+        async function exportSaveFile() {
+            if (!currentSessionId) {
+                alert("暂无进行中的角色！");
+                return;
+            }
+            const resp = await fetch('/api/export', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: currentSessionId })
+            });
+            const res = await resp.json();
+            if (!res.success) return;
+
+            const roleName = document.getElementById('roleName').innerText || 'TA';
+            const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `存档_${roleName}_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importSaveFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const saveData = JSON.parse(e.target.result);
+                    const resp = await fetch('/api/import', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ save_data: saveData })
+                    });
+                    const res = await resp.json();
+                    if (res.success) {
+                        currentSessionId = res.session_id;
+                        localStorage.setItem('game_session_id', currentSessionId);
+                        alert("存档载入成功！");
+                        location.reload();
+                    } else {
+                        alert("导入失败: " + res.msg);
+                    }
+                } catch (err) {
+                    alert("文件格式不正确，请选择合法的 .json 存档文件。");
+                }
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
