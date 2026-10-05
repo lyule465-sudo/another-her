@@ -8,7 +8,7 @@ import urllib.request
 import urllib.error
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
-# ==================== 配置区 ====================
+# ==================== 基础配置 ====================
 MY_API_KEY = "sk-1d476b0c3c5a44fc88b9335f5f47e4a8"
 API_URL = "https://api.deepseek.com/chat/completions"
 PORT = int(os.environ.get("PORT", 8080))
@@ -67,7 +67,6 @@ def get_or_create_session(session_id):
         return new_id, sessions[new_id]
 
 def extract_json_payload(raw_text: str) -> dict:
-    """强化版 JSON 提取器：杜绝非转义换行或标签污染引发的丢话 Bug"""
     if not raw_text:
         return {}
     text = raw_text.strip()
@@ -93,7 +92,21 @@ def extract_json_payload(raw_text: str) -> dict:
             res["reply"] = json.loads(f'"{reply_m.group(1)}"')
         except Exception:
             res["reply"] = reply_m.group(1).replace('\\"', '"').replace('\\n', '\n')
+
+    replies_m = re.search(r'"replies"\s*:\s*\[([\s\S]*?)\]', text)
+    if replies_m:
+        try:
+            res["replies"] = json.loads(f"[{replies_m.group(1)}]")
+        except Exception:
+            pass
             
+    thought_m = re.search(r'"true_thought"\s*:\s*"((?:[^"\\]|\\.)*)"', text, re.DOTALL)
+    if thought_m:
+        try:
+            res["true_thought"] = json.loads(f'"{thought_m.group(1)}"')
+        except Exception:
+            res["true_thought"] = thought_m.group(1).replace('\\"', '"').replace('\\n', '\n')
+
     delta_m = re.search(r'"(?:fav_delta|delta)"\s*:\s*(-?\d+)', text)
     if delta_m:
         res["fav_delta"] = int(delta_m.group(1))
@@ -108,7 +121,7 @@ def call_deepseek(messages, json_mode=False, timeout=45):
     payload = {
         "model": "deepseek-chat",
         "messages": messages,
-        "temperature": 0.8
+        "temperature": 0.88
     }
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
@@ -126,9 +139,23 @@ def call_deepseek(messages, json_mode=False, timeout=45):
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             res_obj = json.loads(resp.read().decode("utf-8"))
             return res_obj["choices"][0]["message"]["content"]
+    except urllib.error.HTTPError as e:
+        err_msg = f"[API错误 {e.code}]: {e.reason}"
+        print(err_msg, flush=True)
+        return json.dumps({
+            "replies": [f"（系统提示: API调用失败 {e.code}，请检查Key与余额）"],
+            "true_thought": "系统调用失败",
+            "fav_delta": 0,
+            "emotion": "异常"
+        })
     except Exception as e:
-        print(f"[API 交互异常]: {e}", flush=True)
-        return None
+        print(f"[API异常]: {e}", flush=True)
+        return json.dumps({
+            "replies": ["（网络有点卡，等我一下...）"],
+            "true_thought": "网络连接超时",
+            "fav_delta": 0,
+            "emotion": "超时"
+        })
 
 def get_prompt_file(filename):
     p = os.path.join(BASE_DIR, "prompts", filename)
@@ -143,7 +170,7 @@ def compress_memories_if_needed(user_game):
     old_slice = user_game["history"][:6]
     user_game["history"] = user_game["history"][6:]
 
-    extract_prompt = f"""提炼以下对话中涉及的二人重要经历、承诺、生活习惯或秘密线索：
+    extract_prompt = f"""提炼对话关键约定、生活事实与心防底线：
 {json.dumps(old_slice, ensure_ascii=False)}
 纯合法 JSON 返回：{{"facts": ["事实1", "事实2"]}}"""
 
@@ -155,7 +182,7 @@ def compress_memories_if_needed(user_game):
         if len(user_game["key_memories"]) > 16:
             user_game["key_memories"] = user_game["key_memories"][-16:]
 
-# ==================== 请求路由器 ====================
+# ==================== 请求路由 ====================
 class MultiUserGameHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass
@@ -203,7 +230,7 @@ class MultiUserGameHandler(BaseHTTPRequestHandler):
             })
             return
 
-        # 2. 角色提炼与仿真人设构建
+        # 2. 角色提炼
         if self.path == "/api/init":
             raw_context = req_data.get("context", "")
             custom_name = req_data.get("custom_name", "").strip()
@@ -217,30 +244,27 @@ class MultiUserGameHandler(BaseHTTPRequestHandler):
 
             addon_traits = []
             if gender:
-                addon_traits.append(f"生理性别/身份称谓: {gender}")
+                addon_traits.append(f"称谓: {gender}")
             if birth_date and zodiac:
-                addon_traits.append(f"生日: {birth_date}（{zodiac}）")
+                addon_traits.append(f"出生: {birth_date}（{zodiac}）")
             if mbti:
-                addon_traits.append(f"MBTI 人格框架: {mbti}")
-            addon_str = "；".join(addon_traits) if addon_traits else "无指定预设，纯依赖原始聊天记录分析"
+                addon_traits.append(f"MBTI: {mbti}")
+            addon_str = "；".join(addon_traits) if addon_traits else "依赖对话记录分析"
 
-            sys_prompt = f"""你是一名资深人际沟通心理学家。请深度剖析以下聊天材料，提炼该角色的真实沟通灵魂与文字生理习惯。
-参考指引：{analyzer_rule}
+            sys_prompt = f"""深度剖析真实语料，提炼该角色的真实沟通灵魂与文字习惯。参考规范：{analyzer_rule}
 补充基底：{addon_str}
-
-【提炼准则（极度重要）】：
-1. 提取对方真实的【标点使用偏好】（如：从来不打句号/喜欢连续空格断句/爱用问号/爱用波浪号~）。
-2. 提取【常用口头禅与词汇习惯】（如“哈哈”、“害”、“笑死”、“好滴”、“嗯嗯”还是“嗯”）。
-3. 提取【单条消息字数偏好】（是秒发几个字的碎片化短句，还是整段长文）。
-4. 结合其星座防卫机制与 MBTI，明确其【核心雷区（反感的压迫/说教/查岗）】与【好感开关】。
-
-必须直接输出纯合法 JSON：
+核心要求：
+1. 找出TA在微信里【聊天主动性】是怎样的（是爱主动分享、还是喜欢反问对方、还是慢热）。
+2. 找出TA习惯的【口癖与断句方式】（比如连发两句短话，还是大段文字）。
+3. 找出TA【不想回答或尴尬时】的借口套路与真实心理防卫。
+输出纯合法 JSON：
 {{
     "name": "昵称或名字",
-    "personality": "性格底层（如：慢热但对外随和，骨子里极度看重边界感）",
-    "tone": "说话风格（必须说明标点偏好、口头禅、回复字数长短习惯）",
-    "likes": "容易引起共鸣的话题或行为",
-    "dislikes": "反感或容易冷处理的雷区",
+    "personality": "性格底层",
+    "tone": "说话口癖与回复长度习惯",
+    "proactivity_style": "主动挑起话题或反问的习惯风格",
+    "likes": "喜好话题",
+    "dislikes": "反感雷区",
     "initial_score": 40
 }}"""
 
@@ -253,10 +277,11 @@ class MultiUserGameHandler(BaseHTTPRequestHandler):
             if not persona or "name" not in persona:
                 persona = {
                     "name": custom_name or "TA",
-                    "personality": "外表客气随和，内心有极强的个人界限，极度慢热",
-                    "tone": "短句为主，极少使用正式句号，常以空格或语气助词结尾",
-                    "likes": "松弛的生活分享、不设防的幽默感",
-                    "dislikes": "频繁打探行踪、情绪索取与说教式追问",
+                    "personality": "注重自我边界，慢热且有真实生活节律",
+                    "tone": "短句碎片为主，随性自然，极少用句号",
+                    "proactivity_style": "偶尔会反问对方的生活，或者随口吐槽自己遇到的事",
+                    "likes": "轻松愉快的生活细节、不带压迫感的互动",
+                    "dislikes": "查岗式追问、频繁打探行踪、说教",
                     "initial_score": 40
                 }
             if custom_name:
@@ -283,11 +308,12 @@ class MultiUserGameHandler(BaseHTTPRequestHandler):
             self._send_json({"success": True, "persona": persona, "session_id": session_id})
             return
 
-        # 3. 拟真人格聊天交互
+        # 3. 拟真对话交互（短句连发 + 拒绝单向应答 + 主动反问）
         if self.path == "/api/chat":
             if user_game.get("is_over", False):
                 self._send_json({
-                    "reply": "故事已画上句号。",
+                    "replies": ["故事已经落幕了。"],
+                    "true_thought": "这段关系已经彻底画上句号了。",
                     "end": True,
                     "favorability": user_game.get("score", 0),
                     "emotion": "释怀",
@@ -297,7 +323,7 @@ class MultiUserGameHandler(BaseHTTPRequestHandler):
 
             user_msg = req_data.get("message", "").strip()
             if not user_msg:
-                self._send_json({"reply": "……", "delta": 0, "emotion": "发呆", "favorability": user_game["score"]})
+                self._send_json({"replies": ["？"], "true_thought": "怎么发了空白？", "delta": 0, "emotion": "疑惑", "favorability": user_game["score"]})
                 return
 
             with sessions_lock:
@@ -314,29 +340,34 @@ class MultiUserGameHandler(BaseHTTPRequestHandler):
                     memories_str = "；".join(user_game["key_memories"])
 
                 p = user_game["persona"]
-                extra_bg = f"星座: {p.get('zodiac', '未知')} | MBTI: {p.get('mbti', '未知')} | 身份: {p.get('gender', 'TA')}"
+                extra_bg = f"星座: {p.get('zodiac', '未知')} | MBTI: {p.get('mbti', '未知')} | 称谓: {p.get('gender', 'TA')}"
 
-                human_directive = """【脱离 AI 感的核心仿真指令】：
-1. 绝对不要像智能助手那样体贴周到、问一答十！现实人类聊天是充满随机性、防御性和生活碎片的。
-2. 严格执行人设的【标点与字数习惯】：如果人设习惯打短句，绝不输出长段落；如果语料中很少用句号，就用空格或不加标点。
-3. 情绪温差反馈：
-   - 当好感低或玩家提问冒犯时：表现出冷淡、防备、惜字如金（例如回：“还行吧”、“没干嘛”、“？”、“哦哦”），绝不假装热情配合。
-   - 当好感高或话题投缘时：语气才更生动，会主动追问或分享自己的事情。
-4. 玩家可能发表情包：[发送了表情包: 名称 (潜台词: 含义)]，请根据两人当前关系阶段自然应对。"""
+                alive_human_directives = """【彻底摒弃 AI 机器感、让角色活过来的核心铁律】：
+1. 【拒绝只当单向应答机】：
+   - 严禁“你问我答”的客服模式！现实人类在聊天时是充满主动性的。
+   - 只要契机合适，你必须【主动反问】对方（例如：“你今天怎么突然问这个？”、“你那边还不睡啊？”、“你呢？”）、【主动吐槽】或者【带出自己此刻手头正在做的现实琐事】（如赶报告、喝水、打游戏、看视频）。
+2. 【微信碎片化短句连发】：
+   - 真实人类发微信是“打碎了发”的。请在 replies 数组里返回 1~3 条自然的微信短句（例如：["刚看到消息", "刚才在洗头哈哈", "怎么啦突然问这个"]）。
+   - 避免把所有话写成一个又长又工整的长句。
+3. 【true_thought 绝不对玩家撒谎】：
+   - 无论表面上多么客套、找借口、逃避或调侃，内心独白必须 100% 毫无保留地交代真实想法、对提问的真正答案与心理防线。"""
 
-                dynamic_sys_prompt = f"""你就是真实世界里的【{p.get('name', 'TA')}】。
-人设内核：{json.dumps(p, ensure_ascii=False)}
+                dynamic_sys_prompt = f"""你是真实世界里的【{p.get('name', 'TA')}】。
+人设底核：{json.dumps(p, ensure_ascii=False)}
 背景参考：{extra_bg}
-共同经历记忆：{memories_str}
-当前对玩家的好感度数值：{current_score}/100（当前阶段：{prev_stage}）
-{human_directive}
+彼此经历：{memories_str}
+当前好感：{current_score}/100（当前阶段：{prev_stage}）
+玩家刚发来消息：「{user_msg}」
+
+{alive_human_directives}
 规范准则：{conv_rule}
 
-输出纯合法 JSON：
+必须直接输出纯合法 JSON：
 {{
-    "reply": "完全符合人设日常发信息的真实回复",
-    "fav_delta": 整数好感增减(-5 到 +4 之间，无明显情感波动请给 0),
-    "emotion": "当前微神态(如：玩手机、敷衍、好奇、轻笑、防御)"
+    "true_thought": "TA内心深处毫无伪装的真实想法、对提问的真正答案与动机（绝不对玩家隐瞒，40-90字）",
+    "replies": ["微信短句1", "微信短句2(可选，主动反问或补充细节)", "微信短句3(可选)"],
+    "fav_delta": 好感增减整数(-5 到 +4),
+    "emotion": "当前微神态(如：心虚、防卫、好奇、轻笑、走神)"
 }}"""
 
                 messages_to_send = [{"role": "system", "content": dynamic_sys_prompt}] + user_game["history"][-10:]
@@ -344,11 +375,12 @@ class MultiUserGameHandler(BaseHTTPRequestHandler):
             raw_reply = call_deepseek(messages_to_send, json_mode=True)
             data = extract_json_payload(raw_reply)
 
-            reply = data.get("reply")
-            if not reply:
-                cleaned = re.sub(r'[{}\[\]"]', '', raw_reply).strip() if raw_reply else ""
-                reply = cleaned if cleaned else "……"
+            replies = data.get("replies")
+            if not replies or not isinstance(replies, list):
+                single = data.get("reply") or (re.sub(r'[{}\[\]"]', '', raw_reply).strip() if raw_reply else "")
+                replies = [single if single else "怎么啦？"]
 
+            true_thought = data.get("true_thought", "（对方此刻内心有所防备，未曾向你言说真实想法）")
             delta = data.get("fav_delta") if "fav_delta" in data else data.get("delta", 0)
             emotion = data.get("emotion", "平静")
 
@@ -359,16 +391,23 @@ class MultiUserGameHandler(BaseHTTPRequestHandler):
 
             with sessions_lock:
                 deduction_entry = None
+                combined_reply_str = " ".join(replies)
                 if delta < 0:
                     deduction_entry = {
                         "user_said": user_msg,
                         "delta": delta,
-                        "target_reply": reply
+                        "target_reply": combined_reply_str,
+                        "inner_truth": true_thought
                     }
                     user_game.setdefault("deduction_logs", []).append(deduction_entry)
 
                 user_game["score"] = max(0, min(100, user_game["score"] + delta))
-                user_game["history"].append({"role": "assistant", "content": reply})
+                user_game["history"].append({
+                    "role": "assistant",
+                    "content": combined_reply_str,
+                    "replies": replies,
+                    "true_thought": true_thought
+                })
                 score = user_game["score"]
 
                 if score < 25:
@@ -394,16 +433,17 @@ class MultiUserGameHandler(BaseHTTPRequestHandler):
                 if score <= 10:
                     end = True
                     user_game["is_over"] = True
-                    end_reason = "对方设置了免打扰，未回覆的消息停在了屏幕上。"
+                    end_reason = "对方开启了免打扰，隔阂已经无法跨越。"
                 elif score >= 95:
                     end = True
                     user_game["is_over"] = True
-                    end_reason = "心意已达顶峰，对方主动发来了见面的具体时间。"
+                    end_reason = "心意已达顶峰，对方主动邀请了现实见面。"
 
                 save_session_to_disk(session_id)
 
             self._send_json({
-                "reply": reply,
+                "replies": replies,
+                "true_thought": true_thought,
                 "delta": delta,
                 "emotion": emotion,
                 "favorability": score,
@@ -411,6 +451,70 @@ class MultiUserGameHandler(BaseHTTPRequestHandler):
                 "end": end,
                 "end_reason": end_reason,
                 "session_id": session_id
+            })
+            return
+
+        # 3.1 角色主动发消息 / 戳一戳触发
+        if self.path == "/api/proactive":
+            if user_game.get("is_over", False):
+                self._send_json({"replies": ["（已结束交互）"], "true_thought": "无", "emotion": "平静"})
+                return
+
+            with sessions_lock:
+                p = user_game.get("persona", {})
+                current_score = user_game.get("score", 40)
+                memories_str = "；".join(user_game.get("key_memories", [])) if user_game.get("key_memories") else "暂无"
+                extra_bg = f"星座: {p.get('zodiac', '未知')} | MBTI: {p.get('mbti', '未知')}"
+
+                proactive_prompt = f"""你就是真实世界里的【{p.get('name', 'TA')}】。
+人设内核：{json.dumps(p, ensure_ascii=False)}
+特质：{extra_bg}
+共同经历：{memories_str}
+当前好感度：{current_score}/100
+
+【情景】：
+过了片刻，你拿着手机，决定【主动】发消息找玩家。
+请像现实中真人一样，主动发一条或两条微信：
+- 可以是主动问对方在干嘛、或者随口提起今天的一件小事/搞笑的事。
+- 如果好感偏低（<35），语气随意冷淡一些，比如：“你刚才问那个干嘛”或“在忙吗”。
+- 如果好感正常或偏高（>60），分享欲会明显增加，主动抛出共同话题或反问对方。
+- 微信短句连发（1~2句）。
+
+输出纯合法 JSON：
+{{
+    "true_thought": "TA主动发消息时的内心深层活动（不撒谎）",
+    "replies": ["主动短句1", "主动短句2(可选)"],
+    "emotion": "主动发起对话时的状态"
+}}"""
+                messages_to_send = [{"role": "system", "content": proactive_prompt}] + user_game["history"][-8:]
+
+            raw_reply = call_deepseek(messages_to_send, json_mode=True)
+            data = extract_json_payload(raw_reply)
+
+            replies = data.get("replies")
+            if not replies or not isinstance(replies, list):
+                single = data.get("reply") or "在干嘛呢"
+                replies = [single]
+
+            true_thought = data.get("true_thought", "闲下来想起来看了一眼手机。")
+            emotion = data.get("emotion", "随性")
+
+            with sessions_lock:
+                combined_reply_str = " ".join(replies)
+                user_game["history"].append({
+                    "role": "assistant",
+                    "content": combined_reply_str,
+                    "replies": replies,
+                    "true_thought": true_thought
+                })
+                save_session_to_disk(session_id)
+
+            self._send_json({
+                "replies": replies,
+                "true_thought": true_thought,
+                "emotion": emotion,
+                "favorability": user_game["score"],
+                "stage": user_game["stage"]
             })
             return
 
@@ -440,10 +544,10 @@ class MultiUserGameHandler(BaseHTTPRequestHandler):
             })
             return
 
-        # 5. 面对现实终局
+        # 5. 面对现实
         if self.path == "/api/farewell":
             p = user_game.get('persona', {})
-            prompt = f"""玩家做出了清醒勇敢的决定：主动删除该角色的所有数据，走出虚拟回响，面对现实生活。
+            prompt = f"""玩家选择面对现实，彻底销毁虚拟角色。
 角色人设：{json.dumps(p, ensure_ascii=False)}，最终好感：{user_game.get('score', 40)}。
 请你以该角色的真实语气，说出最后一句真诚、克制而释怀的告别（认可对方走向现实的勇气，祝愿TA好好生活，70字内，直接输出台词）。"""
 
@@ -460,7 +564,7 @@ class MultiUserGameHandler(BaseHTTPRequestHandler):
             self._send_json({"farewell": farewell_words.strip()})
             return
 
-        # 6. 终局深度心理诊断报告
+        # 6. 终局复盘报告
         if self.path == "/api/analyze_report":
             original_ctx = user_game.get("original_context", "（未提供历史材料）")
             history_data = user_game.get("history", [])
@@ -470,43 +574,43 @@ class MultiUserGameHandler(BaseHTTPRequestHandler):
 
             advisor_rule = get_prompt_file("advisor_reality.md") or get_prompt_file("advisor_report.md")
 
-            report_prompt = f"""你是一名犀利、温和且具有极高心理洞察力的情感顾问。
-玩家刚刚结束了与虚拟角色【{p.get('name', 'TA')}】的所有模拟。
-对象基底：星座【{p.get('zodiac', '未知')}】，MBTI【{p.get('mbti', '未知')}】，身份【{p.get('gender', 'TA')}】。
+            report_prompt = f"""你是一名极具深度洞察力的情感顾问。
+玩家刚刚结束了与虚拟角色【{p.get('name', 'TA')}】的模拟。
+对象基底：星座【{p.get('zodiac', '未知')}】，MBTI【{p.get('mbti', '未知')}】，称谓【{p.get('gender', 'TA')}】。
 参考指引：{advisor_rule}
 
-【材料一：玩家输入的真实过往记录与背景】
+【材料一：原始真实记录】
 {original_ctx[:6000]}
 
-【材料二：本次模拟后期的关键交互】
+【材料二：模拟对话与内心真实独白】
 {json.dumps(history_data[-14:], ensure_ascii=False)}
 
-【材料三：模拟中触发扣分的具体瞬间】
+【材料三：扣分与心理抗拒瞬间】
 {json.dumps(deductions, ensure_ascii=False)}
 
-【终局好感评分】：{final_score}
+【最终得分】：{final_score}
 
-请结合其星座的防御本能、MBTI认知模式、真实语料细节与模拟中表现，做出一份让人释怀的深度复盘。
+请结合其星座的防御本能、MBTI模式，结合真实语料与模拟，剖析真实心理。
 纯合法 JSON 返回：
 {{
     "real_analysis": {{
-        "turning_point": "现实中感情发生转折/温度骤降的标志性节点",
-        "inner_thoughts": "结合星座与真实材料，剖析TA在现实未曾言说的防备、心理边界与压力源",
-        "real_pattern": "两人在真实沟通中最致命的错位节奏"
+        "turning_point": "现实中感情发生降温的核心转折点",
+        "inner_thoughts": "结合星座与真实材料，剖析TA在现实中未曾言说的防备、心理边界与压力源",
+        "real_pattern": "两人在现实中最根本的性格错位"
     }},
     "sim_analysis": {{
         "performance_eval": "玩家在本次模拟中的互动模式与执念表现",
         "critical_mistakes": [
             {{
-                "player_quote": "模拟中引起对方不适或冷淡的原话",
+                "player_quote": "模拟中引起对方戒备或不适的原话",
                 "score_drop": "扣分值",
-                "why_she_felt_bad": "结合MBTI特质，剖析TA在此刻感到压迫、索取或下头的真正心理原因"
+                "why_she_felt_bad": "结合真实心理，剖析TA在此刻感到压迫或逃避的真正原因"
             }}
         ]
     }},
     "final_verdict": {{
-        "relationship_nature": "一针见血的关系定性（如：一场在错位时空的单向执念投射）",
-        "reality_advice": "给玩家面对现实、爱护自己、放下心结的治愈寄语（80~120字）"
+        "relationship_nature": "一针见血的关系定性",
+        "reality_advice": "给玩家面对现实、走出执念的治愈寄语（80~120字）"
     }}
 }}"""
 
@@ -516,23 +620,23 @@ class MultiUserGameHandler(BaseHTTPRequestHandler):
             if not report_json or "real_analysis" not in report_json:
                 report_json = {
                     "real_analysis": {
-                        "turning_point": "当日常的随意分享演变成单方面的小心试探时，温度早已悄然改变。",
-                        "inner_thoughts": "对方感知到了超越舒适区的重量，文字变短只是本能的防卫机制。",
-                        "real_pattern": "一个习惯了索取确认，一个本能地需要独处空间，始终不在一个频段。"
+                        "turning_point": "当日常分享变成单方面的试探时，距离感已经拉开。",
+                        "inner_thoughts": "感知到了越界的压力，用敷衍和沉默来保护个人边界。",
+                        "real_pattern": "一个渴望确认，一个需要空间，步调从未同频。"
                     },
                     "sim_analysis": {
-                        "performance_eval": "依然容易把自身的情绪寄托在对方微弱的回应上。",
+                        "performance_eval": "依然容易将全部期待倾注在对方的每次微弱反馈上。",
                         "critical_mistakes": [
                             {
-                                "player_quote": "急切地追问对方在干嘛或暗示关系",
+                                "player_quote": "连续追问原因或打探心意",
                                 "score_drop": "-3",
-                                "why_she_felt_bad": "无形中形成了人际施压，突破了个体应有的边界感。"
+                                "why_she_felt_bad": "迫使对方在没有准备好的情况下表态，形成了心理压迫。"
                             }
                         ]
                     },
                     "final_verdict": {
                         "relationship_nature": "一段在错位时空里被反复重播的单向投射",
-                        "reality_advice": "屏幕里的回音再真实，也是心底未解执念的投影。去真实世界里拥抱晒得到太阳的生活，你值得一份不需要猜忌与消耗的爱。"
+                        "reality_advice": "屏幕里的回音再逼真，也是投射出来的影子。放下追问‘TA到底爱不爱我’，去在现实生活里找回自己的重心。"
                     }
                 }
 
@@ -543,14 +647,14 @@ class MultiUserGameHandler(BaseHTTPRequestHandler):
             self._send_json({"success": True, "report": report_json})
             return
 
-        # 7. 导出存档
+        # 7. 导出
         if self.path == "/api/export":
             with sessions_lock:
                 export_data = user_game.copy()
             self._send_json({"success": True, "data": export_data})
             return
 
-        # 8. 导入存档
+        # 8. 导入
         if self.path == "/api/import":
             imported_game = req_data.get("save_data", {})
             if not imported_game.get("persona"):
@@ -580,8 +684,8 @@ def run_server():
     server_address = ("0.0.0.0", PORT)
     httpd = ThreadingHTTPServer(server_address, MultiUserGameHandler)
     print("=" * 60, flush=True)
-    print(">>> 《另一个她/他》拟真交互引擎已就绪", flush=True)
-    print(f">>> 服务端口: {PORT} (http://localhost:{PORT})", flush=True)
+    print(">>> 《另一个她/他》活体双轨引擎启动", flush=True)
+    print(f">>> 端口: {PORT} (http://localhost:{PORT})", flush=True)
     print("=" * 60, flush=True)
     try:
         httpd.serve_forever()
