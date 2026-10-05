@@ -4,65 +4,63 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>另一个她/他</title>
-    <!-- 引入纯前端轻量 OCR 引擎 -->
-    <script src="[https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js](https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js)"></script>
+    <!-- 使用国内极速镜像 CDN 引入 OCR 引擎 -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
     <style>
         :root {
             --bg-color: #0b0f19;
-            --chat-bg: #f2f4f7;
+            --chat-bg: #f4f6f9;
             --primary-accent: #007aff;
-            --player-green: #2ecc71;
             --text-dark: #1a1e24;
             --text-muted: #8c939f;
-            --card-radius: 28px;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", Roboto, sans-serif; }
         body { background: var(--bg-color); display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
 
-        /* 手机壳容器 */
         .phone-shell { width: 100%; max-width: 440px; height: 100vh; background: var(--chat-bg); display: flex; flex-direction: column; position: relative; box-shadow: 0 25px 60px rgba(0,0,0,0.45); }
-        @media(min-width: 480px) { .phone-shell { height: 92vh; border-radius: var(--card-radius); overflow: hidden; border: 1px solid rgba(255,255,255,0.1); } }
+        @media(min-width: 480px) { .phone-shell { height: 92vh; border-radius: 28px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); } }
 
-        /* 灵动磨砂顶栏 */
-        .header { background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(0,0,0,0.06); padding: 12px 16px 10px; display: flex; flex-direction: column; gap: 8px; z-index: 5; }
+        /* 顶部状态栏 */
+        .header { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(0,0,0,0.06); padding: 12px 16px 10px; display: flex; flex-direction: column; gap: 8px; z-index: 5; }
         .header-top { display: flex; justify-content: space-between; align-items: center; }
         .header-profile { display: flex; align-items: center; gap: 11px; }
         .avatar-wrap { position: relative; width: 42px; height: 42px; }
         .header-avatar { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; background: #e5e7eb; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         .avatar-badge { position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; background: #10b981; border: 2px solid #fff; border-radius: 50%; }
 
-        .target-title h3 { font-size: 15px; color: var(--text-dark); font-weight: 600; letter-spacing: -0.2px; display: flex; align-items: center; gap: 6px; }
+        .target-title h3 { font-size: 15px; color: var(--text-dark); font-weight: 600; display: flex; align-items: center; gap: 6px; }
         .tag-pill { font-size: 10px; padding: 1px 6px; background: rgba(0, 122, 255, 0.1); color: var(--primary-accent); border-radius: 10px; font-weight: normal; }
         .target-title span { font-size: 11px; color: var(--text-muted); }
         
         .header-actions { display: flex; align-items: center; gap: 6px; }
-        .action-btn { background: rgba(0,0,0,0.05); color: #475569; border: none; padding: 5px 9px; border-radius: 8px; font-size: 11.5px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
-        .action-btn:hover { background: rgba(0,0,0,0.09); }
-        .danger-btn { background: #fee2e2; color: #ef4444; border: none; padding: 5px 9px; border-radius: 8px; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-        .danger-btn:hover { background: #fca5a5; }
+        .action-btn { background: rgba(0,0,0,0.05); color: #475569; border: none; padding: 5px 9px; border-radius: 8px; font-size: 11.5px; font-weight: 500; cursor: pointer; }
+        .danger-btn { background: #fee2e2; color: #ef4444; border: none; padding: 5px 9px; border-radius: 8px; font-size: 11.5px; font-weight: 600; cursor: pointer; }
 
-        /* 好感度动态条 */
-        .score-track { width: 100%; height: 5px; background: rgba(0,0,0,0.06); border-radius: 3px; overflow: hidden; position: relative; }
+        .score-track { width: 100%; height: 5px; background: rgba(0,0,0,0.06); border-radius: 3px; overflow: hidden; }
         .score-progress { height: 100%; width: 40%; background: linear-gradient(90deg, #f43f5e, #fb7185); border-radius: 3px; transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
 
         /* 对话区 */
         .chat-area { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 14px; scroll-behavior: smooth; }
-        .msg-bubble-wrap { display: flex; gap: 9px; max-width: 82%; align-items: flex-end; opacity: 0; transform: translateY(8px); animation: popMsg 0.25s forwards ease-out; }
+        .msg-bubble-wrap { display: flex; gap: 9px; max-width: 88%; align-items: flex-start; opacity: 0; transform: translateY(8px); animation: popMsg 0.25s forwards ease-out; }
         @keyframes popMsg { to { opacity: 1; transform: translateY(0); } }
         
-        .msg-bubble-wrap.player { align-self: flex-end; flex-direction: row-reverse; }
+        .msg-bubble-wrap.player { align-self: flex-end; flex-direction: row-reverse; max-width: 82%; }
         .bubble-avatar { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
         
-        .bubble-content { display: flex; flex-direction: column; gap: 2px; }
+        .bubble-content { display: flex; flex-direction: column; gap: 4px; }
         .player .bubble-content { align-items: flex-end; }
         .bubble-time { font-size: 10px; color: #a0aec0; margin: 0 4px; }
         
+        /* 真实内心透视卡片 */
+        .thought-card { background: #eff6ff; border-left: 3px solid #3b82f6; border-radius: 6px; padding: 6px 10px; font-size: 11.5px; color: #1e40af; line-height: 1.45; margin-bottom: 2px; }
+        .thought-label { font-weight: 700; color: #1d4ed8; display: block; margin-bottom: 1px; font-size: 10.5px; }
+
         .bubble { padding: 10px 14px; border-radius: 18px; font-size: 14px; line-height: 1.5; word-break: break-all; white-space: pre-wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.04); position: relative; }
         .ai .bubble { background: #ffffff; color: #1e293b; border-bottom-left-radius: 4px; border: 1px solid rgba(0,0,0,0.03); }
         .player .bubble { background: linear-gradient(135deg, #10b981, #059669); color: #ffffff; border-bottom-right-radius: 4px; }
         .emotion-badge { font-size: 10.5px; color: #94a3b8; margin-left: 2px; font-style: italic; }
 
-        /* 正在输入拟真动画 */
+        /* 正在输入动画 */
         .typing-wrap { display: none; align-items: center; gap: 8px; margin-left: 43px; }
         .typing-bubble { background: #ffffff; padding: 8px 12px; border-radius: 14px; display: flex; gap: 4px; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
         .typing-dot { width: 5px; height: 5px; background: #94a3b8; border-radius: 50%; animation: blink 1.2s infinite ease-in-out both; }
@@ -73,157 +71,126 @@
         /* 工具与表情包快捷栏 */
         .emoji-bar { background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); border-top: 1px solid rgba(0,0,0,0.05); padding: 7px 12px; display: flex; gap: 7px; overflow-x: auto; align-items: center; }
         .emoji-bar::-webkit-scrollbar { display: none; }
-        .emoji-chip { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 4px 10px; font-size: 12px; color: #475569; cursor: pointer; white-space: nowrap; transition: transform 0.1s; }
-        .emoji-chip:active { transform: scale(0.96); }
+        .emoji-chip { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 4px 10px; font-size: 12px; color: #475569; cursor: pointer; white-space: nowrap; }
+        .proactive-chip { background: #e0f2fe; border-color: #bae6fd; color: #0284c7; font-weight: 600; }
         .rollback-chip { background: #fff7ed; border-color: #ffedd5; color: #ea580c; font-weight: 500; }
 
         /* 底部输入框 */
         .footer-input { background: #ffffff; border-top: 1px solid rgba(0,0,0,0.06); padding: 10px 14px 14px; display: flex; gap: 9px; align-items: center; }
-        .footer-input input { flex: 1; padding: 11px 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 22px; font-size: 14.5px; outline: none; transition: border-color 0.2s; color: var(--text-dark); }
+        .footer-input input { flex: 1; padding: 11px 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 22px; font-size: 14.5px; outline: none; color: var(--text-dark); }
         .footer-input input:focus { border-color: #3b82f6; background: #fff; }
-        .footer-input button { padding: 0 18px; height: 42px; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; border-radius: 21px; font-weight: 600; font-size: 13.5px; cursor: pointer; transition: opacity 0.2s; }
+        .footer-input button { padding: 0 18px; height: 42px; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; border-radius: 21px; font-weight: 600; font-size: 13.5px; cursor: pointer; }
         .footer-input button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        /* 初始人设面板 */
+        /* 人设建立面板 */
         .setup-overlay { position: absolute; inset: 0; background: #ffffff; z-index: 10; display: flex; flex-direction: column; padding: 22px 20px; overflow-y: auto; gap: 12px; }
-        .setup-overlay h2 { font-size: 21px; color: var(--text-dark); text-align: center; font-weight: 700; letter-spacing: -0.5px; }
+        .setup-overlay h2 { font-size: 21px; color: var(--text-dark); text-align: center; font-weight: 700; }
         .setup-overlay p { font-size: 12.5px; color: #64748b; text-align: center; line-height: 1.45; }
         
         .avatar-picker-card { display: flex; align-items: center; gap: 14px; background: #f8fafc; padding: 12px 14px; border-radius: 16px; border: 1px solid #e2e8f0; }
-        .preview-avatar { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; background: #e2e8f0; border: 2px solid #fff; box-shadow: 0 3px 8px rgba(0,0,0,0.08); }
-        .avatar-upload-btn { font-size: 12px; color: #0284c7; background: #e0f2fe; padding: 5px 10px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-block; }
+        .preview-avatar { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; background: #e2e8f0; border: 2px solid #fff; }
+        .avatar-upload-btn { font-size: 12px; color: #0284c7; background: #e0f2fe; padding: 5px 10px; border-radius: 8px; font-weight: 600; cursor: pointer; }
 
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .setup-input, .setup-select { width: 100%; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 12.5px; outline: none; color: var(--text-dark); }
-        .setup-input:focus, .setup-select:focus { border-color: #3b82f6; background: #fff; }
+        .setup-input, .setup-select { width: 100%; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 12.5px; outline: none; }
         
-        .file-dropzone { border: 2px dashed #93c5fd; border-radius: 12px; padding: 14px; text-align: center; cursor: pointer; background: #f0f7ff; font-size: 12.5px; color: #1d4ed8; transition: background 0.2s; }
-        .file-dropzone:hover { background: #e0eeff; }
+        .file-dropzone { border: 2px dashed #93c5fd; border-radius: 12px; padding: 14px; text-align: center; cursor: pointer; background: #f0f7ff; font-size: 12.5px; color: #1d4ed8; transition: all 0.2s; }
         .file-dropzone input { display: none; }
-        .setup-overlay textarea { width: 100%; height: 80px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; resize: none; outline: none; font-size: 12.5px; color: var(--text-dark); }
-        .start-btn { padding: 13px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; border: none; border-radius: 12px; font-size: 14.5px; font-weight: 600; cursor: pointer; margin-top: 4px; box-shadow: 0 4px 12px rgba(37,99,235,0.25); }
+        .progress-bar-wrap { width: 100%; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 6px; display: none; }
+        .progress-bar-fill { height: 100%; width: 0%; background: #3b82f6; transition: width 0.2s; }
 
-        /* 复盘诊断弹窗 */
+        .setup-overlay textarea { width: 100%; height: 95px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; resize: none; outline: none; font-size: 12.5px; }
+        .start-btn { padding: 13px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; border: none; border-radius: 12px; font-size: 14.5px; font-weight: 600; cursor: pointer; }
+
+        /* 报告模态框 */
         .report-overlay { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.75); z-index: 20; display: flex; justify-content: center; align-items: center; padding: 16px; backdrop-filter: blur(10px); }
         .report-card { width: 100%; max-width: 420px; max-height: 88vh; background: #ffffff; border-radius: 20px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
         .report-header { background: #0f172a; color: #fff; padding: 16px; text-align: center; }
-        .report-header h2 { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
-        .report-header span { font-size: 11px; color: #94a3b8; }
-        
-        .report-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; font-size: 13px; line-height: 1.6; color: #334155; }
+        .report-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; font-size: 13px; line-height: 1.6; }
         .report-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; }
-        .section-title { font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
-        .sub-field { margin-bottom: 7px; }
-        .sub-field strong { color: #64748b; display: block; font-size: 11.5px; margin-bottom: 2px; }
-
-        .bad-moment-item { background: #ffffff; border-left: 3px solid #ef4444; padding: 8px 10px; border-radius: 6px; margin-top: 6px; font-size: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
-        .bad-moment-quote { color: #dc2626; font-weight: 600; }
-        .bad-moment-reason { color: #64748b; margin-top: 2px; }
-
+        .section-title { font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 8px; }
+        .bad-moment-item { background: #ffffff; border-left: 3px solid #ef4444; padding: 8px 10px; border-radius: 6px; margin-top: 6px; font-size: 12px; }
         .verdict-box { background: #eff6ff; border-left: 4px solid #3b82f6; padding: 11px 13px; border-radius: 6px; }
-        .verdict-nature { font-weight: 700; color: #1e3a8a; margin-bottom: 4px; font-size: 13px; }
-        .verdict-advice { color: #1e40af; font-size: 12.5px; line-height: 1.55; }
-
         .report-footer { padding: 12px 16px; border-top: 1px solid #e2e8f0; background: #fff; }
         .report-close-btn { width: 100%; padding: 11px; background: #0f172a; color: #fff; border: none; border-radius: 10px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
-        .loading-spin { width: 32px; height: 32px; border: 3px solid #cbd5e1; border-top-color: #2563eb; border-radius: 50%; margin: 0 auto; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <div class="phone-shell">
-        <!-- 初始人设面板 -->
         <div class="setup-overlay" id="setupOverlay">
             <h2>《另一个她/他》</h2>
-            <p>上传与 TA 的聊天记录/截图，开启高度拟真的对话与心理复盘</p>
+            <p>上传真实聊天截图或文字，开启有生命力、透视内心的模拟</p>
             
-            <!-- 头像照片选择 -->
             <div class="avatar-picker-card">
-                <img id="avatarPreview" class="preview-avatar" src="data:image/svg+xml,%3Csvg xmlns='[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E">
+                <img id="avatarPreview" class="preview-avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E">
                 <div>
                     <label class="avatar-upload-btn">
                         📷 上传 TA 的真实照片/头像
                         <input type="file" id="avatarFileInput" accept="image/*" onchange="handleAvatarSelected(this)" style="display:none;">
                     </label>
-                    <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">聊天时将作为对方气泡专属头像</div>
                 </div>
             </div>
 
-            <!-- 称谓与昵称 -->
             <div class="form-grid">
                 <div>
-                    <input type="text" id="customName" class="setup-input" placeholder="名字/备注昵称">
+                    <input type="text" id="customName" class="setup-input" placeholder="名字/备注">
                 </div>
                 <div>
                     <select id="genderSelect" class="setup-select">
-                        <option value="她">称谓: 她 (女性)</option>
-                        <option value="他">称谓: 他 (男性)</option>
-                        <option value="TA">称谓: TA (通用)</option>
+                        <option value="她">称谓: 她</option>
+                        <option value="他">称谓: 他</option>
+                        <option value="TA">称谓: TA</option>
                     </select>
                 </div>
             </div>
 
-            <!-- 出生日期与星座计算 -->
             <div class="form-grid">
                 <div>
-                    <input type="date" id="birthDate" class="setup-input" title="出生日期（可选）" onchange="calcZodiac()">
+                    <input type="date" id="birthDate" class="setup-input" title="出生日期" onchange="calcZodiac()">
                 </div>
                 <div>
-                    <input type="text" id="zodiacField" class="setup-input" placeholder="星座 (选日期自动识别)" readonly>
+                    <input type="text" id="zodiacField" class="setup-input" placeholder="星座 (自动识别)" readonly>
                 </div>
             </div>
 
-            <!-- MBTI 类型 -->
             <select id="mbtiSelect" class="setup-select">
-                <option value="">人格特质: 由 AI 根据对话风格自主分析</option>
-                <optgroup label="分析家 (NT 理性独立)">
-                    <option value="INTJ (建筑师)">INTJ (建筑师 - 独立克制/极重边界)</option>
-                    <option value="INTP (逻辑学家)">INTP (逻辑学家 - 随性慢热/思维跳跃)</option>
-                    <option value="ENTJ (指挥官)">ENTJ (指挥官 - 目标导向/果断干脆)</option>
-                    <option value="ENTP (辩论家)">ENTP (辩论家 - 幽默善辩/不喜受限)</option>
-                </optgroup>
-                <optgroup label="外交家 (NF 敏感共情)">
-                    <option value="INFJ (提倡者)">INFJ (提倡者 - 温和疏离/精神界限)</option>
-                    <option value="INFP (调停者)">INFP (调停者 - 敏感内耗/看重真诚)</option>
-                    <option value="ENFJ (主人公)">ENFJ (主人公 - 热情体贴/关注他人)</option>
-                    <option value="ENFP (竞选者)">ENFP (竞选者 - 灵动感性/向往自由)</option>
-                </optgroup>
-                <optgroup label="守护者 (SJ 务实稳健)">
-                    <option value="ISTJ (物流师)">ISTJ (物流师 - 严谨务实/言出必行)</option>
-                    <option value="ISFJ (守卫者)">ISFJ (守卫者 - 细致包容/习惯付出)</option>
-                    <option value="ESTJ (总经理)">ESTJ (总经理 - 坦率直接/讲求规矩)</option>
-                    <option value="ESFJ (执政官)">ESFJ (执政官 - 温暖体贴/顾及氛围)</option>
-                </optgroup>
-                <optgroup label="探险家 (SP 随性自由)">
-                    <option value="ISTP (鉴赏家)">ISTP (鉴赏家 - 寡言冷静/看重当下)</option>
-                    <option value="ISFP (探险家)">ISFP (探险家 - 艺术感性/避开冲突)</option>
-                    <option value="ESTP (企业家)">ESTP (企业家 - 直爽利落/享受现在)</option>
-                    <option value="ESFP (表演者)">ESFP (表演者 - 乐天开朗/爱热闹)</option>
-                </optgroup>
+                <option value="">人格特质: 由 AI 自由推断</option>
+                <option value="INTJ (建筑师)">INTJ (建筑师 - 独立克制/极重边界)</option>
+                <option value="INTP (逻辑学家)">INTP (逻辑学家 - 随性慢热/思维跳跃)</option>
+                <option value="INFJ (提倡者)">INFJ (提倡者 - 温和疏离/精神界限)</option>
+                <option value="INFP (调停者)">INFP (调停者 - 敏感内耗/看重真诚)</option>
+                <option value="ISTJ (物流师)">ISTJ (物流师 - 严谨务实/言出必行)</option>
+                <option value="ISFJ (守卫者)">ISFJ (守卫者 - 细致包容/习惯付出)</option>
+                <option value="ISTP (鉴赏家)">ISTP (鉴赏家 - 寡言冷静/看重当下)</option>
+                <option value="ISFP (探险家)">ISFP (探险家 - 艺术感性/避开冲突)</option>
+                <option value="ENTP (辩论家)">ENTP (辩论家 - 幽默善辩/不喜受限)</option>
+                <option value="ENFP (竞选者)">ENFP (竞选者 - 灵动感性/向往自由)</option>
             </select>
 
-            <!-- 截图/文本导入 -->
-            <label class="file-dropzone">
-                <span id="fileLabel">📁 导入聊天记录 (.txt) 或截图 (支持多选 / 微信截图直接 Ctrl+V 粘贴)</span>
+            <!-- 截图或文件导入区域（带识别进度） -->
+            <label class="file-dropzone" id="dropzoneLabel">
+                <span id="fileLabel">📸 点击上传聊天截图 / 粘贴截图 / 导入.txt</span>
+                <div class="progress-bar-wrap" id="ocrProgressWrap">
+                    <div class="progress-bar-fill" id="ocrProgressBar"></div>
+                </div>
                 <input type="file" id="logFileInput" accept=".txt,image/*" multiple onchange="handleSourceFiles(this)">
             </label>
 
-            <textarea id="manualDesc" placeholder="聊天记录内容或补充习惯描述（粘贴或提取的文字会自动汇集在此，可人工增删）..."></textarea>
+            <textarea id="manualDesc" placeholder="聊天记录内容（若上传了截图会自动提取填入这里；微信里也可直接【提取文字】后粘贴在此）..."></textarea>
             
             <button class="start-btn" id="startBtn" onclick="submitPersona()">生成角色并开启人生</button>
         </div>
 
-        <!-- 顶部状态栏 -->
         <div class="header">
             <div class="header-top">
                 <div class="header-profile">
                     <div class="avatar-wrap">
-                        <img id="currentAvatar" class="header-avatar" src="data:image/svg+xml,%3Csvg xmlns='[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E">
+                        <img id="currentAvatar" class="header-avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E">
                         <div class="avatar-badge"></div>
                     </div>
                     <div class="target-title">
                         <h3><span id="roleName">角色载入中</span> <span class="tag-pill" id="roleStage">日常试探</span></h3>
-                        <span id="subStatusText">最后在线: 刚刚</span>
+                        <span id="subStatusText">状态: 活跃</span>
                     </div>
                 </div>
                 <div class="header-actions">
@@ -243,47 +210,39 @@
             </div>
         </div>
 
-        <!-- 聊天流主区域 -->
         <div class="chat-area" id="chatArea"></div>
 
-        <!-- 拟真“正在输入”动画状态 -->
         <div class="typing-wrap" id="typingWrap">
             <div class="typing-bubble">
-                <span style="font-size: 11px; color: #94a3b8; margin-right: 2px;">对方正在输入</span>
+                <span style="font-size: 11px; color: #94a3b8; margin-right: 2px;">对方正在打字</span>
                 <div class="typing-dot"></div>
                 <div class="typing-dot"></div>
                 <div class="typing-dot"></div>
             </div>
         </div>
 
-        <!-- 快捷表情与撤回工具栏 -->
         <div class="emoji-bar">
-            <button class="emoji-chip rollback-chip" onclick="rollbackTurn()" title="撤回上一轮发言并回滚好感状态">↩ 撤回上一句</button>
+            <button class="emoji-chip proactive-chip" onclick="triggerProactive()">👉 等TA主动 / 拍拍TA</button>
+            <button class="emoji-chip rollback-chip" onclick="rollbackTurn()">↩ 撤回上一句</button>
             <button class="emoji-chip" onclick="sendEmoji('🐶 滑稽', '调侃、开玩笑')">🐶 滑稽</button>
             <button class="emoji-chip" onclick="sendEmoji('🐱 害羞小猫', '不好意思、心动')">🐱 害羞</button>
             <button class="emoji-chip" onclick="sendEmoji('❓ 黑人问号', '疑惑、不解')">❓ 问号</button>
             <button class="emoji-chip" onclick="sendEmoji('👊 敲打拳头', '假装生气、娇嗔')">👊 敲打</button>
-            <button class="emoji-chip" onclick="sendEmoji('🌹 递玫瑰', '示好、浪漫')">🌹 送花</button>
         </div>
 
-        <!-- 底部消息输入框 -->
         <div class="footer-input">
             <input type="text" id="playerInput" placeholder="发消息..." onkeydown="if(event.key==='Enter') sendChat()">
             <button id="sendBtn" onclick="sendChat()">发送</button>
         </div>
 
-        <!-- 终局深度复盘报告模态框 -->
         <div id="reportModal" class="report-overlay" style="display: none;">
             <div class="report-card">
                 <div class="report-header">
-                    <h2>🧭 关系终局复盘与深度心理诊断</h2>
-                    <span>基于真实过往语料与本次模拟演练交叉分析</span>
+                    <h2>🧭 终局真实心理复盘</h2>
+                    <span style="font-size: 11px; color: #94a3b8;">揭秘未曾言说的真相</span>
                 </div>
                 <div class="report-body" id="reportBody">
-                    <div style="text-align: center; padding: 40px 0; color: #94a3b8;">
-                        <div class="loading-spin"></div>
-                        <p style="margin-top: 12px; font-size: 13px;">AI 专家正在深度复盘心理切片，请稍候...</p>
-                    </div>
+                    <p style="text-align: center; color: #888; padding: 40px 0;">专家正在生成复盘报告...</p>
                 </div>
                 <div class="report-footer">
                     <button class="report-close-btn" onclick="closeReportAndReset()">完成复盘，坦然走向现实</button>
@@ -296,21 +255,17 @@
         let currentSessionId = localStorage.getItem('game_session_id') || "";
         let roleAvatarBase64 = "";
 
-        // 根据出生日期推算星座
         function calcZodiac() {
             const val = document.getElementById('birthDate').value;
             if (!val) return;
             const parts = val.split('-');
             const month = parseInt(parts[1], 10);
             const day = parseInt(parts[2], 10);
-
             const dates = [20, 19, 21, 20, 21, 22, 23, 23, 23, 24, 22, 22];
             const signs = ["摩羯座 ♑", "水瓶座 ♒", "双鱼座 ♓", "白羊座 ♈", "金牛座 ♉", "双子座 ♊", "巨蟹座 ♋", "狮子座 ♌", "处女座 ♍", "天秤座 ♎", "天蝎座 ♏", "射手座 ♐", "摩羯座 ♑"];
-            const sign = day < dates[month - 1] ? signs[month - 1] : signs[month];
-            document.getElementById('zodiacField').value = sign;
+            document.getElementById('zodiacField').value = day < dates[month - 1] ? signs[month - 1] : signs[month];
         }
 
-        // 头像上传与压缩
         function handleAvatarSelected(input) {
             const file = input.files[0];
             if (!file) return;
@@ -331,56 +286,76 @@
             reader.readAsDataURL(file);
         }
 
-        // 文件与截图 OCR 解析
+        // 高速国内 OCR 识别器
+        async function doRecognizeImage(fileOrBlob, fileName = "图片") {
+            const label = document.getElementById('fileLabel');
+            const progressWrap = document.getElementById('ocrProgressWrap');
+            const progressBar = document.getElementById('ocrProgressBar');
+
+            progressWrap.style.display = 'block';
+            label.innerText = `🔍 正在识别 ${fileName}...`;
+
+            try {
+                // 使用国内加速源
+                const worker = await Tesseract.createWorker({
+                    workerPath: 'https://cdn.bootcdn.net/ajax/libs/tesseract.js/4.1.1/worker.min.js',
+                    corePath: 'https://cdn.bootcdn.net/ajax/libs/tesseract.js-core/4.0.4/tesseract-core.wasm.js',
+                    langPath: 'https://raw.gitmirror.com/naptha/tessdata/gh-pages/4.0.0_fast',
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            const p = Math.round((m.progress || 0) * 100);
+                            progressBar.style.width = p + '%';
+                            label.innerText = `🔍 正在提取文字: ${p}%`;
+                        }
+                    }
+                });
+                await worker.loadLanguage('chi_sim');
+                await worker.initialize('chi_sim');
+                const ret = await worker.recognize(fileOrBlob);
+                await worker.terminate();
+
+                const text = ret.data.text.trim();
+                if (text) {
+                    document.getElementById('manualDesc').value += `\n【截图文字: ${fileName}】\n` + text;
+                    label.innerText = `✅ ${fileName} 识别提取成功！`;
+                } else {
+                    label.innerText = `⚠️ 未检测到有效文字，可直接粘贴微信提取文本`;
+                }
+            } catch (err) {
+                console.error(err);
+                label.innerText = `⚠️ 网络慢？建议直接在微信里点【提取文字】复制粘贴最快！`;
+            } finally {
+                setTimeout(() => { progressWrap.style.display = 'none'; }, 2000);
+            }
+        }
+
+        // 处理文件选择
         async function handleSourceFiles(input) {
             const files = Array.from(input.files);
             if (!files.length) return;
 
-            const label = document.getElementById('fileLabel');
             for (let f of files) {
                 if (f.name.endsWith('.txt')) {
                     const text = await f.text();
                     document.getElementById('manualDesc').value += `\n【文本记录: ${f.name}】\n` + text;
-                    label.innerText = `✅ 已载入文本: ${f.name}`;
+                    document.getElementById('fileLabel').innerText = `✅ 已载入文本: ${f.name}`;
                 } else if (f.type.startsWith('image/')) {
-                    label.innerText = `🔍 正在识别截图文字: ${f.name}...`;
-                    try {
-                        const ret = await Tesseract.recognize(f, 'chi_sim');
-                        const ocrText = ret.data.text.trim();
-                        if (ocrText) {
-                            document.getElementById('manualDesc').value += `\n【截图对话: ${f.name}】\n` + ocrText;
-                            label.innerText = `✅ 截图识别完成！`;
-                        }
-                    } catch (err) {
-                        label.innerText = `⚠️ OCR识别受限，可在输入框手动修改补充`;
-                    }
+                    await doRecognizeImage(f, f.name);
                 }
             }
         }
 
-        // 剪贴板直接粘贴图片（Ctrl + V）
+        // 剪贴板 Ctrl + V 粘贴图片直接触发
         window.addEventListener('paste', async (e) => {
             const items = (e.clipboardData || e.originalEvent.clipboardData).items;
             for (let item of items) {
                 if (item.type.indexOf('image') !== -1) {
                     const blob = item.getAsFile();
-                    const label = document.getElementById('fileLabel');
-                    label.innerText = `🔍 正在识别剪贴板图片...`;
-                    try {
-                        const ret = await Tesseract.recognize(blob, 'chi_sim');
-                        const ocrText = ret.data.text.trim();
-                        if (ocrText) {
-                            document.getElementById('manualDesc').value += `\n【粘贴截图提取】\n` + ocrText;
-                            label.innerText = `✅ 剪贴板截图提取成功！`;
-                        }
-                    } catch (err) {
-                        label.innerText = `⚠️ 剪贴板解析出错`;
-                    }
+                    await doRecognizeImage(blob, "剪贴板截图");
                 }
             }
         });
 
-        // 页面启动自动恢复存档
         window.addEventListener('DOMContentLoaded', async () => {
             if (!currentSessionId) return;
             try {
@@ -392,19 +367,24 @@
                 const data = await resp.json();
                 if (data.has_role) {
                     document.getElementById('setupOverlay').style.display = 'none';
-                    const name = data.persona.name || "TA";
-                    document.getElementById('roleName').innerText = name;
+                    document.getElementById('roleName').innerText = data.persona.name || "TA";
                     if (data.persona.avatar_url) {
                         roleAvatarBase64 = data.persona.avatar_url;
                         document.getElementById('currentAvatar').src = roleAvatarBase64;
                     }
                     updateStatus(data.score, data.stage);
                     data.history.forEach(item => {
-                        appendMsg(item.role === 'user' ? 'player' : 'ai', item.content);
+                        if (item.replies && Array.isArray(item.replies)) {
+                            item.replies.forEach((r, idx) => {
+                                appendSingleBubble('ai', r, idx === 0 ? '' : '', idx === 0 ? item.true_thought : '');
+                            });
+                        } else {
+                            appendSingleBubble(item.role === 'user' ? 'player' : 'ai', item.content, '', item.true_thought);
+                        }
                     });
                 }
             } catch (e) {
-                console.log("加载历史会话失败:", e);
+                console.log(e);
             }
         });
 
@@ -417,7 +397,7 @@
             const gender = document.getElementById('genderSelect').value.trim();
 
             if (!manual && !customName) {
-                alert("请提供聊天记录、截图或性格描述！");
+                alert("请提供聊天记录或性格特征！");
                 return;
             }
 
@@ -450,9 +430,9 @@
                     document.getElementById('currentAvatar').src = roleAvatarBase64;
                 }
                 updateStatus(data.persona.initial_score || 40, "日常试探");
-                appendMsg('ai', "（对方已上线）", data.persona.personality);
+                appendSingleBubble('ai', "（对方已上线）", '', "连接建立…准备开启真实交互。");
             } else {
-                alert("角色创建失败，请重试。");
+                alert("初始化失败，请重试。");
                 startBtn.disabled = false;
                 startBtn.innerText = "生成角色并开启人生";
             }
@@ -466,13 +446,10 @@
 
         function formatTime() {
             const d = new Date();
-            const h = String(d.getHours()).padStart(2, '0');
-            const m = String(d.getMinutes()).padStart(2, '0');
-            return `${h}:${m}`;
+            return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
         }
 
-        // 安全纯文本渲染，杜绝尖括号与特殊字符吞字
-        function appendMsg(sender, text, emotion = '') {
+        function appendSingleBubble(sender, text, emotion = '', trueThought = '') {
             const area = document.getElementById('chatArea');
             const wrap = document.createElement('div');
             wrap.className = `msg-bubble-wrap ${sender}`;
@@ -483,17 +460,24 @@
                 avatarImg.src = roleAvatarBase64;
             } else {
                 avatarImg.src = sender === 'ai' 
-                    ? "data:image/svg+xml,%3Csvg xmlns='[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)' viewBox='0 0 24 24' fill='%2364748b'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E"
-                    : "data:image/svg+xml,%3Csvg xmlns='[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)' viewBox='0 0 24 24' fill='%2310b981'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E";
+                    ? "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2364748b'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E"
+                    : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310b981'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E";
             }
 
             const contentDiv = document.createElement('div');
             contentDiv.className = 'bubble-content';
 
+            if (sender === 'ai' && trueThought) {
+                const thoughtCard = document.createElement('div');
+                thoughtCard.className = 'thought-card';
+                thoughtCard.innerHTML = `<span class="thought-label">💭 TA的心里话（毫无伪装）：</span>${trueThought}`;
+                contentDiv.appendChild(thoughtCard);
+            }
+
             if (sender === 'ai' && emotion) {
                 const emotionBadge = document.createElement('div');
                 emotionBadge.className = 'emotion-badge';
-                emotionBadge.textContent = emotion;
+                emotionBadge.textContent = `[神态: ${emotion}]`;
                 contentDiv.appendChild(emotionBadge);
             }
 
@@ -513,57 +497,81 @@
             area.scrollTop = area.scrollHeight;
         }
 
+        async function playAiRepliesSequence(replies, emotion, trueThought) {
+            const typingWrap = document.getElementById('typingWrap');
+            const chatArea = document.getElementById('chatArea');
+
+            for (let i = 0; i < replies.length; i++) {
+                typingWrap.style.display = 'flex';
+                chatArea.scrollTop = chatArea.scrollHeight;
+                
+                const waitTime = Math.min(1200, Math.max(650, replies[i].length * 60));
+                await new Promise(r => setTimeout(r, waitTime));
+
+                typingWrap.style.display = 'none';
+                appendSingleBubble('ai', replies[i], i === 0 ? emotion : '', i === 0 ? trueThought : '');
+            }
+        }
+
         async function sendChat() {
             const input = document.getElementById('playerInput');
             const text = input.value.trim();
             if (!text) return;
 
             input.value = '';
-            appendMsg('player', text);
+            appendSingleBubble('player', text);
 
             const sendBtn = document.getElementById('sendBtn');
             sendBtn.disabled = true;
 
-            // 显示拟真“正在输入”动画
             const typingWrap = document.getElementById('typingWrap');
             typingWrap.style.display = 'flex';
             const chatArea = document.getElementById('chatArea');
             chatArea.scrollTop = chatArea.scrollHeight;
 
-            const startTime = Date.now();
-
             try {
                 const resp = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        message: text,
-                        session_id: currentSessionId 
-                    })
+                    body: JSON.stringify({ message: text, session_id: currentSessionId })
                 });
                 const data = await resp.json();
 
-                // 强制保持至少 800ms 的打字等待，拟真人类思考
-                const elapsed = Date.now() - startTime;
-                if (elapsed < 900) {
-                    await new Promise(r => setTimeout(r, 900 - elapsed));
-                }
-
                 typingWrap.style.display = 'none';
-                appendMsg('ai', data.reply, data.emotion);
+                await playAiRepliesSequence(data.replies || [data.reply], data.emotion, data.true_thought);
                 updateStatus(data.favorability, data.stage);
 
                 if (data.end) {
-                    appendMsg('ai', data.end_reason, '故事落幕');
-                    setTimeout(() => {
-                        openDiagnosticReport();
-                    }, 1400);
+                    appendSingleBubble('ai', data.end_reason, '故事落幕', '所有试探已画上休止符。');
+                    setTimeout(() => { openDiagnosticReport(); }, 1400);
                 }
             } catch (e) {
                 typingWrap.style.display = 'none';
-                appendMsg('ai', '网络卡顿，请重试...', '走神');
+                appendSingleBubble('ai', '网络卡顿，请重试...', '走神', '请求未能正常到达服务器。');
             } finally {
                 sendBtn.disabled = false;
+            }
+        }
+
+        async function triggerProactive() {
+            const typingWrap = document.getElementById('typingWrap');
+            typingWrap.style.display = 'flex';
+            const chatArea = document.getElementById('chatArea');
+            chatArea.scrollTop = chatArea.scrollHeight;
+
+            try {
+                const resp = await fetch('/api/proactive', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: currentSessionId })
+                });
+                const data = await resp.json();
+                typingWrap.style.display = 'none';
+                await playAiRepliesSequence(data.replies || [data.reply], data.emotion, data.true_thought);
+                updateStatus(data.favorability, data.stage);
+            } catch (e) {
+                typingWrap.style.display = 'none';
+                alert("网络繁忙，请稍后再试");
             }
         }
 
@@ -573,9 +581,8 @@
             sendChat();
         }
 
-        // 撤回上一句
         async function rollbackTurn() {
-            if (!confirm("确定要撤回上一句发言并回滚好感状态吗？")) return;
+            if (!confirm("确定撤回上一句并回滚好感状态吗？")) return;
             const resp = await fetch('/api/rollback', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -591,37 +598,25 @@
                     bubbles[bubbles.length - 2].remove();
                 }
             } else {
-                alert(data.msg || "暂无可撤回的记录");
+                alert(data.msg || "暂无可撤回记录");
             }
         }
 
         async function triggerFarewell() {
-            const ok = confirm("【郑重警告】\n确定要面对现实并彻底删除该虚拟角色的全部记忆吗？\n硬盘存档将即刻销毁，不可再生。");
-            if (!ok) return;
-
+            if (!confirm("【郑重警告】\n销毁该角色的所有数据并面对现实？本地存档将彻底删除。")) return;
             const resp = await fetch('/api/farewell', { 
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_id: currentSessionId })
             });
             const data = await resp.json();
-            
-            appendMsg('ai', data.farewell, '最后的道别');
-            setTimeout(() => {
-                openDiagnosticReport();
-            }, 1800);
+            appendSingleBubble('ai', data.farewell, '最后告别', '不再逃避，也不再有借口。去过好你的真实人生吧。');
+            setTimeout(() => { openDiagnosticReport(); }, 1800);
         }
 
         async function openDiagnosticReport() {
             const modal = document.getElementById('reportModal');
             modal.style.display = 'flex';
-            document.getElementById('reportBody').innerHTML = `
-                <div style="text-align: center; padding: 50px 0; color: #94a3b8;">
-                    <div class="loading-spin"></div>
-                    <p style="margin-top: 12px; font-size: 13px;">情感专家正在全量交叉分析真实记录与模拟心理...</p>
-                </div>
-            `;
-
             try {
                 const resp = await fetch('/api/analyze_report', {
                     method: 'POST',
@@ -631,11 +626,9 @@
                 const data = await resp.json();
                 if (data.success) {
                     renderReport(data.report);
-                } else {
-                    document.getElementById('reportBody').innerHTML = `<p style="color:red;text-align:center;">生成报告失败。</p>`;
                 }
             } catch (e) {
-                document.getElementById('reportBody').innerHTML = `<p style="color:red;text-align:center;">网络异常，未能生成报告。</p>`;
+                document.getElementById('reportBody').innerHTML = `<p style="color:red;text-align:center;">生成报告失败。</p>`;
             }
         }
 
@@ -649,8 +642,8 @@
                 sim.critical_mistakes.forEach(m => {
                     mistakesHtml += `
                         <div class="bad-moment-item">
-                            <div class="bad-moment-quote">“${m.player_quote}” (${m.score_drop}分)</div>
-                            <div class="bad-moment-reason">↳ 对方感受：${m.why_she_felt_bad}</div>
+                            <div style="color:#dc2626;font-weight:600;">“${m.player_quote}” (${m.score_drop}分)</div>
+                            <div style="color:#64748b;margin-top:2px;">↳ 真实心理反应：${m.why_she_felt_bad}</div>
                         </div>
                     `;
                 });
@@ -660,36 +653,21 @@
 
             const html = `
                 <div class="report-section">
-                    <div class="section-title">📜 真实过往心理切片 (TA现实中究竟怎么想)</div>
-                    <div class="sub-field">
-                        <strong>转折发生点：</strong>
-                        <span>${real.turning_point || '未见明显转折'}</span>
-                    </div>
-                    <div class="sub-field">
-                        <strong>TA在现实中的真实防备与心理边界：</strong>
-                        <span>${real.inner_thoughts || '暂无'}</span>
-                    </div>
-                    <div class="sub-field" style="margin-bottom:0;">
-                        <strong>根本相处错位：</strong>
-                        <span>${real.real_pattern || '暂无'}</span>
-                    </div>
+                    <div class="section-title">📜 真实过往心理切片</div>
+                    <div style="margin-bottom:6px;"><strong>现实降温转折：</strong><span>${real.turning_point || '未见明显转折'}</span></div>
+                    <div style="margin-bottom:6px;"><strong>现实未言说的防备与压力：</strong><span>${real.inner_thoughts || '暂无'}</span></div>
+                    <div><strong>相处中的根本性格错位：</strong><span>${real.real_pattern || '暂无'}</span></div>
                 </div>
 
                 <div class="report-section">
-                    <div class="section-title">🎮 本次模拟实战复盘与扣分归因</div>
-                    <div class="sub-field">
-                        <strong>表现评价：</strong>
-                        <span>${sim.performance_eval || '表现平稳'}</span>
-                    </div>
-                    <div class="sub-field" style="margin-bottom:0;">
-                        <strong>核心扣分原话剖析：</strong>
-                        ${mistakesHtml}
-                    </div>
+                    <div class="section-title">🎮 模拟实战与内心抵触复盘</div>
+                    <div style="margin-bottom:6px;"><strong>沟通风格评价：</strong><span>${sim.performance_eval || '表现平稳'}</span></div>
+                    <div><strong>引发防备的原话与真实抗拒原因：</strong>${mistakesHtml}</div>
                 </div>
 
                 <div class="verdict-box">
-                    <div class="verdict-nature">📌 关系定性：${verdict.relationship_nature || '一段未完的追寻'}</div>
-                    <div class="verdict-advice">“${verdict.reality_advice || '去真实的生活里爱自己。'}”</div>
+                    <div style="font-weight:700;color:#1e3a8a;margin-bottom:4px;">📌 关系定性：${verdict.relationship_nature || '一段未完的追寻'}</div>
+                    <div style="color:#1e40af;font-size:12.5px;line-height:1.55;">“${verdict.reality_advice || '去真实的生活里爱自己。'}”</div>
                 </div>
             `;
             document.getElementById('reportBody').innerHTML = html;
@@ -701,10 +679,6 @@
         }
 
         async function exportSaveFile() {
-            if (!currentSessionId) {
-                alert("暂无进行中的角色！");
-                return;
-            }
             const resp = await fetch('/api/export', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -712,13 +686,11 @@
             });
             const res = await resp.json();
             if (!res.success) return;
-
-            const roleName = document.getElementById('roleName').innerText || 'TA';
             const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `存档_${roleName}_${new Date().toISOString().slice(0,10)}.json`;
+            a.download = `存档_${new Date().toISOString().slice(0,10)}.json`;
             a.click();
             URL.revokeObjectURL(url);
         }
@@ -726,7 +698,6 @@
         function importSaveFile(input) {
             const file = input.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = async function(e) {
                 try {
@@ -743,10 +714,10 @@
                         alert("存档导入成功！");
                         location.reload();
                     } else {
-                        alert("导入失败: " + res.msg);
+                        alert("存档格式不合法。");
                     }
                 } catch (err) {
-                    alert("文件格式不正确，请选择合法的 .json 存档文件。");
+                    alert("导入失败。");
                 }
             };
             reader.readAsText(file);
